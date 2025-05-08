@@ -1,0 +1,26 @@
+# Output binary dan direktori build
+/target/
+
+# Files Cargo
+**/*.rs.bk
+Cargo.lock
+
+# Jika menggunakan Shuttle untuk deployment
+.shuttle/
+
+# Konfigurasi editor (opsional, tergantung tim)
+.vscode/
+.idea/
+
+# Files sistem operasi (macOS, Windows, Linux)
+.DS_Store
+Thumbs.db
+
+# File lingkungan (jika menyimpan variabel rahasia)
+.env
+.env.*
+
+# Output test / logs / coverage
+*.log
+*.profraw
+coverage/

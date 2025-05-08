@@ -1,0 +1,22 @@
+[package]
+name = "optimalizerApp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
+tower = "0.4"
+tracing = "0.1"
+futures = "0.3"
+tracing-subscriber = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8"
+log = "0.4"
+env_logger = "0.10"
+rayon = "1.7"
+hashbrown = "0.13"
+async-stream = "0.3"
+tower-http = { version = "0.5", features = ["cors", "set-header"] }
