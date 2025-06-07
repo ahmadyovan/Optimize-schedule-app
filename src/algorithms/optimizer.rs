@@ -1,6 +1,4 @@
-use std::{
-    collections::HashMap, sync::{atomic::{AtomicBool, Ordering}, Arc},
-};
+use std::{collections::HashMap};
 
 use rand::Rng;
 use rayon::prelude::*;
@@ -10,20 +8,16 @@ use super::models::{
         CourseRequest, FitnessCalculator, OptimizationProgress, OptimizedCourse, Particle, PsoParameters, TimePreferenceRequest, PSO
     };
 
-// ============================================================================
-// PARTICLE IMPLEMENTATION
-// ============================================================================
 impl Particle {
-    /// Create new particle with random position and velocity
+   
     pub fn new(dimension: usize) -> Self {
         let mut rng = rand::rng();
         
-        // Random position in [0,1] range
+      
         let position: Vec<f32> = (0..dimension)
             .map(|_| rng.random_range(0.0..1.0))
             .collect();
             
-        // Small random velocity for stable convergence
         let velocity: Vec<f32> = (0..dimension)
             .map(|_| rng.random_range(-0.1..0.1))
             .collect();
@@ -31,9 +25,9 @@ impl Particle {
         Particle {
             position,
             velocity,
-            pbest_position: vec![0.0; dimension], // Will be set after first evaluation
-            pbest_fitness: f32::INFINITY,        // Initialize with infinity
-            fitness: f32::INFINITY,              // Will be calculated in first iteration
+            pbest_position: vec![0.0; dimension], 
+            pbest_fitness: f32::INFINITY,        
+            fitness: f32::INFINITY,              
         }
     }
 
@@ -51,30 +45,24 @@ impl Particle {
             let r1: f32 = rng.random(); 
             let r2: f32 = rng.random(); 
             
-            // Cognitive component: attraction to personal best
             let cognitive = cognitive_weight * r1 * (self.pbest_position[i] - self.position[i]);
             
-            // Social component: attraction to global best
             let social = social_weight * r2 * (gbest[i] - self.position[i]);
             
-            // PSO velocity update: v = w*v + c1*r1*(pbest-x) + c2*r2*(gbest-x)
             self.velocity[i] = inertia_weight * self.velocity[i] + cognitive + social;
             
-            // Velocity clamping to prevent excessive exploration
-            self.velocity[i] = self.velocity[i].clamp(-0.5, 0.5);
+            // self.velocity[i] = self.velocity[i].clamp(-1.0, 1.0);
         }
     }
 
-    /// Update position based on velocity
     pub fn update_position(&mut self) {
         for i in 0..self.position.len() {
             self.position[i] += self.velocity[i];
-            // Keep position in [0,1] range
-            self.position[i] = self.position[i].clamp(0.0, 1.0);
+
+            // self.position[i] = self.position[i].clamp(0.0, 1.0);
         }
     }
 
-    /// Update personal best if current fitness is better
     pub fn update_personal_best(&mut self) {
         if self.fitness < self.pbest_fitness && !self.fitness.is_nan() {
             self.pbest_fitness = self.fitness;
@@ -83,11 +71,8 @@ impl Particle {
     }
 }
 
-// ============================================================================
-// PSO IMPLEMENTATION
-// ============================================================================
+
 impl PSO {
-    /// Constructor for new PSO instance
     pub fn new(
         courses: Vec<CourseRequest>,
         time_preferences: Vec<TimePreferenceRequest>,
@@ -95,7 +80,7 @@ impl PSO {
         status_tx: Option<broadcast::Sender<OptimizationProgress>>,
         stop_rx: Option<watch::Receiver<bool>>,
     ) -> Self {
-        let dimension = courses.len() * 2; // 2 dimensions per course: day_order, time_order
+        let dimension = courses.len() * 2; 
 
         PSO {
             particles: vec![],
@@ -124,10 +109,8 @@ impl PSO {
         println!("Starting PSO optimization - Run {}/{}", current_run + 1, total_runs);
         println!("Swarm size: {}, Max iterations: {}", self.parameters.swarm_size, self.parameters.max_iterations);
 
-        // Initialize swarm with random particles
         self.initialize_swarm();
 
-        // Main optimization loop
         for iteration in 0..self.parameters.max_iterations {
 
             if let Some(rx) = &self.stop_rx {
@@ -137,29 +120,15 @@ impl PSO {
                 }
             }
 
-            // Step 1: Evaluate all particles
             self.evaluate_all_particles();
 
-            // Step 2: Update global best
             self.update_global_best();
 
-            // Step 3: Update all particles (velocity and position)
             self.update_all_particles();
 
-            // Progress reporting
-            // self.emit_progress(window, iteration + 1, &start_time, all_best_fitness, current_run, total_runs, false);
-
-            // Early stopping for very good solutions
             if self.global_best_fitness < 0.001 {
                 println!("Early stopping: Optimal solution found at iteration {}", iteration);
                 break;
-            }
-
-            // Log progress periodically
-            if iteration % 100 == 0 {
-                let diversity = self.calculate_swarm_diversity();
-                println!("Iteration {}: Best fitness = {:.6}, Diversity = {:.6}", 
-                    iteration, self.global_best_fitness, diversity);
             }
 
             self.progress(iteration + 1, &start_time, all_best_fitness, current_run, total_runs, false);
@@ -168,20 +137,17 @@ impl PSO {
 
         // Final results
         all_best_fitness.push(self.global_best_fitness);
-        // self.emit_progress(window, self.parameters.max_iterations, &start_time, all_best_fitness, current_run, total_runs, true);
 
         println!("Optimization completed - Best fitness: {:.6}", self.global_best_fitness);
         (self.global_best_position.clone(), self.global_best_fitness)
     }
 
-    /// Reset optimization state for new run
     fn reset_optimization(&mut self) {
         self.global_best_fitness = f32::INFINITY;
         self.global_best_position.fill(0.0);
         self.particles.clear();
     }
 
-    /// Initialize swarm with random particles (no fitness evaluation here)
     fn initialize_swarm(&mut self) {
         let dimension = self.courses.len() * 2;
         
@@ -193,20 +159,16 @@ impl PSO {
                 self.parameters.swarm_size, dimension);
     }
 
-    /// Evaluate fitness for all particles
     fn evaluate_all_particles(&mut self) {
-        // Clone necessary data for parallel processing
         let courses = self.courses.clone();
         let fitness_calculator = self.fitness_calculator.clone();
 
-        // Parallel fitness evaluation
         self.particles.par_iter_mut().for_each(|particle| {
             particle.fitness = Self::evaluate_position(&particle.position, &courses, &fitness_calculator);
             particle.update_personal_best();
         });
     }
 
-    /// Update global best from all particles
     fn update_global_best(&mut self) {
         for particle in &self.particles {
             if particle.pbest_fitness < self.global_best_fitness && !particle.pbest_fitness.is_nan() {
@@ -216,13 +178,10 @@ impl PSO {
         }
     }
 
-    /// Update all particles (velocity and position)
     fn update_all_particles(&mut self) {
-        // Clone global best for parallel access
         let global_best_position = self.global_best_position.clone();
         let params = self.parameters.clone();
 
-        // Parallel particle updates
         self.particles.par_iter_mut().for_each(|particle| {
             particle.update_velocity(
                 &global_best_position,
@@ -232,37 +191,6 @@ impl PSO {
             );
             particle.update_position();
         });
-    }
-
-    /// Calculate swarm diversity for convergence monitoring
-    pub fn calculate_swarm_diversity(&self) -> f32 {
-        if self.particles.len() < 2 {
-            return 1.0;
-        }
-
-        let mut total_distance = 0.0;
-        let mut count = 0;
-
-        // Calculate average pairwise distance
-        for i in 0..self.particles.len() {
-            for j in (i + 1)..self.particles.len() {
-                let distance: f32 = self.particles[i].position
-                    .iter()
-                    .zip(&self.particles[j].position)
-                    .map(|(a, b)| (a - b).powi(2))
-                    .sum::<f32>()
-                    .sqrt();
-                
-                total_distance += distance;
-                count += 1;
-            }
-        }
-
-        if count > 0 {
-            total_distance / count as f32
-        } else {
-            1.0
-        }
     }
 
     fn progress(
@@ -289,7 +217,6 @@ impl PSO {
         }
     }
 
-    /// Evaluate fitness of a position
     pub fn evaluate_position(
         position: &[f32],
         courses: &[CourseRequest],
@@ -299,14 +226,12 @@ impl PSO {
         calculator.calculate_fitness(&schedule)
     }
     
-    /// Convert particle position to valid schedule
     pub fn position_to_schedule(
         position: &[f32],
         courses: &[CourseRequest],
     ) -> Vec<OptimizedCourse> {
         let mut grouped: HashMap<(u32, u32, u32, u32), Vec<(f32, f32, OptimizedCourse)>> = HashMap::new();
 
-        // Group courses by prodi, semester, class, and time
         for (i, course) in courses.iter().enumerate() {
             let idx = i * 2;
             if idx + 1 >= position.len() {
@@ -337,30 +262,26 @@ impl PSO {
 
         let mut scheduled = Vec::with_capacity(courses.len());
 
-        // Schedule days based on day_order
         for entries in grouped.into_values() {
             let mut sorted = entries;
             sorted.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-            // SKS limit per day based on number of courses
             let max_sks = if sorted.len() == 4 { 3 } else { 6 };
-            let mut sks_per_day = [0u32; 5]; // Monday-Friday
+            let mut sks_per_day = [0u32; 5]; 
             let mut current_day = 0;
 
             for (_, time_order, mut course) in sorted {
-                // Find available day
                 while current_day < 5 {
                     if sks_per_day[current_day] + course.sks <= max_sks {
-                        course.hari = current_day as u32 + 1; // 1=Monday, 2=Tuesday, etc.
+                        course.hari = current_day as u32 + 1;
                         sks_per_day[current_day] += course.sks;
                         break;
                     }
                     current_day += 1;
                 }
 
-                // Fallback to Friday if no slot available
                 if course.hari == 0 {
-                    course.hari = 5; // Friday
+                    course.hari = 5;
                 }
 
                 scheduled.push((
@@ -371,7 +292,6 @@ impl PSO {
             }
         }
 
-        // Schedule times based on time_order
         let mut by_day: HashMap<_, Vec<_>> = HashMap::new();
         for (key, time_order, course) in scheduled {
             by_day.entry(key).or_default().push((time_order, course));
@@ -382,19 +302,17 @@ impl PSO {
         for ((_, _, _, id_waktu, _), mut entries) in by_day {
             entries.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-            // Determine time range based on id_waktu
             let (start, end) = match id_waktu {
-                1 => (480, 720),   // Morning: 08:00-12:00 (in minutes)
-                2 => (1080, 1320), // Evening: 18:00-22:00 (in minutes)
-                _ => (480, 720),   // Default morning
+                1 => (480, 720),   
+                2 => (1080, 1320), 
+                _ => (480, 720),   
             };
 
             let mut current_time = start;
 
             for (_, mut course) in entries {
-                let duration = course.sks * 40; // 40 minutes per SKS
+                let duration = course.sks * 40; 
                 
-                // Reset to start if not enough time
                 if current_time + duration > end {
                     current_time = start;
                 }

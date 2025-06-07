@@ -103,7 +103,4 @@ pub struct PsoParameters {
     pub cognitive_weight: f32,
     pub social_weight: f32,
     pub inertia_weight: f32,
-    // pub velocity_clamp: f32,     // Ganti V_MAX
-    // pub position_clamp: f32,       // Ganti POS_MIN
-    pub num_runs: Option<usize>
 }

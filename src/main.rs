@@ -18,10 +18,9 @@ async fn main() {
     env_logger::init();
     
     let (status_tx, _) = broadcast::channel(1024);
-    let (stop_tx, stop_rx) = watch::channel(false);
+    let (stop_tx, _) = watch::channel(false);
     let state = AppState { status_tx, stop_tx };
     
-    // Configure CORS
     let cors = CorsLayer::new()
         .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
@@ -30,7 +29,6 @@ async fn main() {
         .allow_credentials(true)
         .max_age(Duration::from_secs(3600));
     
-    // Setup routes
     let app = Router::new()
         .route("/optimize", post(optimize_handler))
         .route("/status", get(status_handler))
@@ -38,7 +36,6 @@ async fn main() {
         .layer(cors)
         .with_state(state);
     
-    // Start server
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await.unwrap();
     println!("Server running on http://127.0.0.1:8080");
     axum::serve(listener, app).await.unwrap();
