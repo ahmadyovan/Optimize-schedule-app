@@ -1,5 +1,6 @@
 mod models;
 mod pso;
+mod algorithms;
 mod handlers;
 
 use axum::{
@@ -11,8 +12,6 @@ use std::time::Duration;
 use tower_http::cors::CorsLayer;
 use tokio::sync::{broadcast, watch};
 use handlers::{AppState, optimize_handler, status_handler, stop_handler};
-
-
 
 #[tokio::main]
 async fn main() {

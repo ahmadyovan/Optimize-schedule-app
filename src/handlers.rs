@@ -8,12 +8,11 @@ use futures::stream::Stream;
 use serde_json::json;
 use tokio::sync::watch;
 use log::error;
-use crate::models::{OptimizationRequest, OptimizationStatus};
-use crate::pso::optimizer::PSO;
+use crate::algorithms::models::{PSO, OptimizationRequest, OptimizationProgress, OptimizedCourse};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub status_tx: tokio::sync::broadcast::Sender<OptimizationStatus>,
+    pub status_tx: tokio::sync::broadcast::Sender<OptimizationProgress>,
     pub stop_tx: watch::Sender<bool>,
 }
 
@@ -22,10 +21,6 @@ pub async fn stop_handler(
 ) -> Result<Response, StatusCode> {
     // Kirim sinyal stop
     if state.stop_tx.send(true).is_err() {
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    }
-    // Reset stop_tx ke false setelah mengirim sinyal stop
-    if state.stop_tx.send(false).is_err() {
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     Ok(Json(json!({ "success": true })).into_response())
@@ -56,38 +51,46 @@ pub async fn optimize_handler(
 ) -> Result<Response, StatusCode> {
     let courses = req.courses.clone();
     let time_preferences = req.time_preferences.clone();
-    let sum_ruangan = req.sum_ruangan;
     let parameters = req.parameters.clone();
+    let num_runs = 1;
+
     let status_tx = state.status_tx.clone();
-    let stop_rx = state.stop_tx.subscribe(); // Dapatkan receiver untuk sinyal stop
+    let stop_rx = state.stop_tx.subscribe();
+
+    if state.stop_tx.send(false).is_err() {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    let mut best_overall_schedule: Option<Vec<OptimizedCourse>> = None;
+    let mut best_overall_fitness = f32::INFINITY;
+    let mut all_best_fitness = Vec::with_capacity(num_runs);
     
-    // Jalankan optimisasi di thread terpisah
-    let result = tokio::task::spawn(async move {
+    for i in 0..num_runs {
         let mut pso = PSO::new(
             courses.clone(),
-            time_preferences,
+            time_preferences.clone(),
             parameters.clone(),
-            sum_ruangan
+            Some(status_tx.clone()),
+           Some(stop_rx.clone()),
         );
-        
-        // Jalankan optimisasi secara asinkron
-        let best_position = pso.optimize(status_tx, stop_rx).await;
-        
-        // Evaluasi hasil terbaik
-        let (fitness, conflicts) = pso.evaluate_best_position();
-        
-        // Convert hasil ke jadwal yang dapat digunakan
-        let optimized_schedule = PSO::position_to_schedule(&best_position, &courses, sum_ruangan);
-        
-        serde_json::json!({
-            "success": true,
-            "fitness": fitness,
-            "conflicts": conflicts,
-            "schedule": optimized_schedule
-        })
-    })
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let (best_position, fitness) =
+            pso.optimize(Some((i, num_runs)), &mut all_best_fitness).await;
+
+        let schedule = PSO::position_to_schedule(&best_position, &courses);
+
+        if fitness < best_overall_fitness {
+            best_overall_fitness = fitness;
+            best_overall_schedule = Some(schedule);
+        }
+    }
+
+    let result = json!({
+        "success": true,
+        "fitness": best_overall_fitness,
+        "all_best_fitness": all_best_fitness,
+        "schedule": best_overall_schedule
+    });
     
     let mut response = Json(result).into_response();
     response.headers_mut().insert(
