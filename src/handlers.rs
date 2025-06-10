@@ -8,7 +8,7 @@ use futures::stream::Stream;
 use serde_json::json;
 use tokio::sync::watch;
 use log::error;
-use crate::algorithms::models::{PSO, OptimizationRequest, OptimizationProgress, OptimizedCourse};
+use crate::algorithms::{models::{OptimizationProgress, OptimizationRequest, OptimizedCourse, ScheduleChecker, PSO}};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -85,11 +85,19 @@ pub async fn optimize_handler(
         }
     }
 
+    let conflicts = if let Some(ref schedule) = best_overall_schedule {
+        let checker = ScheduleChecker::new(time_preferences.clone());
+        checker.schedule_messages(schedule)
+    } else {
+        (vec![], vec![]) // fallback kosong jika tidak ada jadwal
+    };
+
     let result = json!({
         "success": true,
         "fitness": best_overall_fitness,
         "all_best_fitness": all_best_fitness,
-        "schedule": best_overall_schedule
+        "schedule": best_overall_schedule,
+        "message": conflicts
     });
     
     let mut response = Json(result).into_response();

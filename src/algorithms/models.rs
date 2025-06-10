@@ -51,22 +51,22 @@ pub struct OptimizationProgress {
 #[derive(Debug, Deserialize, Clone)]
 pub struct TimePreferenceRequest {
     pub id_dosen: u32,
-    pub seninPagi: bool,
-    pub seninMalam: bool,
-    pub selasaPagi: bool,
-    pub selasaMalam: bool,
-    pub rabuPagi: bool,
-    pub rabuMalam: bool,
-    pub kamisPagi: bool,
-    pub kamisMalam: bool,
-    pub jumatPagi: bool,
-    pub jumatMalam: bool,
+    pub senin_pagi: bool,
+    pub senin_malam: bool,
+    pub selasa_pagi: bool,
+    pub selasa_malam: bool,
+    pub rabu_pagi: bool,
+    pub rabu_malam: bool,
+    pub kamis_pagi: bool,
+    pub kamis_malam: bool,
+    pub jumat_pagi: bool,
+    pub jumat_malam: bool,
 }
 
 #[derive(Debug, Clone)]
 
-pub struct FitnessCalculator {
-    pub time_preferences: HashMap<u32, TimePreferenceRequest>,
+pub struct ScheduleChecker {
+   pub time_preferences: HashMap<u32, TimePreferenceRequest>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -91,7 +91,7 @@ pub struct PSO {
     pub global_best_fitness: f32,
     pub parameters: PsoParameters,
     pub courses: Vec<CourseRequest>,
-    pub fitness_calculator: FitnessCalculator,
+    pub checker: ScheduleChecker,
     pub status_tx: Option<broadcast::Sender<OptimizationProgress>>,
     pub stop_rx: Option<watch::Receiver<bool>>,
 }

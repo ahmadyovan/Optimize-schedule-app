@@ -4,9 +4,9 @@ use rand::Rng;
 use rayon::prelude::*;
 use tokio::{sync::{broadcast, watch}, time::Instant};
 
-use super::models::{
-        CourseRequest, FitnessCalculator, OptimizationProgress, OptimizedCourse, Particle, PsoParameters, TimePreferenceRequest, PSO
-    };
+use super::{models::{
+        CourseRequest, OptimizationProgress, OptimizedCourse, Particle, PsoParameters, ScheduleChecker, TimePreferenceRequest, PSO
+}};
 
 impl Particle {
    
@@ -88,7 +88,7 @@ impl PSO {
             global_best_fitness: f32::INFINITY,
             courses,
             parameters,
-            fitness_calculator: FitnessCalculator::new(time_preferences),
+            checker: ScheduleChecker::new(time_preferences),
             status_tx,
             stop_rx
         }
@@ -161,10 +161,10 @@ impl PSO {
 
     fn evaluate_all_particles(&mut self) {
         let courses = self.courses.clone();
-        let fitness_calculator = self.fitness_calculator.clone();
+        let checker = self.checker.clone();
 
         self.particles.par_iter_mut().for_each(|particle| {
-            particle.fitness = Self::evaluate_position(&particle.position, &courses, &fitness_calculator);
+            particle.fitness = Self::evaluate_position(&particle.position, &courses, &checker);
             particle.update_personal_best();
         });
     }
@@ -220,10 +220,10 @@ impl PSO {
     pub fn evaluate_position(
         position: &[f32],
         courses: &[CourseRequest],
-        calculator: &FitnessCalculator,
+        checker: &ScheduleChecker,
     ) -> f32 {
         let schedule = Self::position_to_schedule(position, courses);
-        calculator.calculate_fitness(&schedule)
+        checker.calculate_fitness(&schedule)
     }
     
     pub fn position_to_schedule(
@@ -234,12 +234,14 @@ impl PSO {
 
         for (i, course) in courses.iter().enumerate() {
             let idx = i * 2;
+            
             if idx + 1 >= position.len() {
                 break;
             }
 
             let day_order = position[idx];
             let time_order = position[idx + 1];
+
             let key = (course.prodi, course.semester, course.id_kelas, course.id_waktu);
 
             let opt_course = OptimizedCourse {

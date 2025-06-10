@@ -19,4 +19,5 @@ env_logger = "0.10"
 rayon = "1.7"
 hashbrown = "0.13"
 async-stream = "0.3"
+erased-serde = "0.3"
 tower-http = { version = "0.5", features = ["cors", "set-header"] }
