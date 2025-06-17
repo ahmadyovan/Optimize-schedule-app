@@ -12,7 +12,6 @@ impl Particle {
    
     pub fn new(dimension: usize) -> Self {
         let mut rng = rand::rng();
-        
       
         let position: Vec<f32> = (0..dimension)
             .map(|_| rng.random_range(0.0..1.0))
@@ -51,7 +50,6 @@ impl Particle {
             
             self.velocity[i] = inertia_weight * self.velocity[i] + cognitive + social;
             
-            // self.velocity[i] = self.velocity[i].clamp(-1.0, 1.0);
         }
     }
 
@@ -59,7 +57,6 @@ impl Particle {
         for i in 0..self.position.len() {
             self.position[i] += self.velocity[i];
 
-            // self.position[i] = self.position[i].clamp(0.0, 1.0);
         }
     }
 
@@ -94,7 +91,6 @@ impl PSO {
         }
     }
 
-    /// Main PSO optimization function
     pub async fn optimize(
         &mut self,
         run_info: Option<(usize, usize)>,
@@ -103,11 +99,7 @@ impl PSO {
         let start_time = Instant::now();
         let (current_run, total_runs) = run_info.unwrap_or((0, 0));
 
-        // Reset state for new run
         self.reset_optimization();
-
-        println!("Starting PSO optimization - Run {}/{}", current_run + 1, total_runs);
-        println!("Swarm size: {}, Max iterations: {}", self.parameters.swarm_size, self.parameters.max_iterations);
 
         self.initialize_swarm();
 
@@ -154,9 +146,6 @@ impl PSO {
         self.particles = (0..self.parameters.swarm_size)
             .map(|_| Particle::new(dimension))
             .collect();
-
-        println!("Swarm initialized with {} particles, {} dimensions each", 
-                self.parameters.swarm_size, dimension);
     }
 
     fn evaluate_all_particles(&mut self) {
@@ -164,7 +153,8 @@ impl PSO {
         let checker = self.checker.clone();
 
         self.particles.par_iter_mut().for_each(|particle| {
-            particle.fitness = Self::evaluate_position(&particle.position, &courses, &checker);
+            let schedule = Self::position_to_schedule(&particle.position, &courses);
+            particle.fitness = checker.evaluate(&schedule);
             particle.update_personal_best();
         });
     }
@@ -216,19 +206,10 @@ impl PSO {
             let _ = tx.send(progress);
         }
     }
-
-    pub fn evaluate_position(
-        position: &[f32],
-        courses: &[CourseRequest],
-        checker: &ScheduleChecker,
-    ) -> f32 {
-        let schedule = Self::position_to_schedule(position, courses);
-        checker.calculate_fitness(&schedule)
-    }
     
     pub fn position_to_schedule(
         position: &[f32],
-        courses: &[CourseRequest],
+        courses: &[CourseRequest]
     ) -> Vec<OptimizedCourse> {
         let mut grouped: HashMap<(u32, u32, u32, u32), Vec<(f32, f32, OptimizedCourse)>> = HashMap::new();
 

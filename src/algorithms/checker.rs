@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::Serialize;
 
@@ -43,14 +41,14 @@ impl ScheduleChecker {
         }
     }
 
-    pub fn calculate_fitness(&self, schedule: &[OptimizedCourse]) -> f32 {
-        let conflict_result = self.detect_conflicts(schedule);
-        let preference_result = self.check_preferences(schedule);
+    pub fn evaluate(&self, schedule: &[OptimizedCourse]) -> f32 {
+        let fitness_a = self.detect_conflicts(schedule);
+        let fitness_b = self.check_preferences(schedule);
 
-        (conflict_result.penalty + preference_result.penalty) as f32
+        (fitness_a.penalty + fitness_b.penalty) as f32
     }
 
-    pub fn schedule_messages(&self, schedule: &[OptimizedCourse]) -> (Vec<ConflictMessage>, Vec<PreferenceMessage>) {
+    pub fn evaluate_messages(&self, schedule: &[OptimizedCourse]) -> (Vec<ConflictMessage>, Vec<PreferenceMessage>) {
         let conflict_result = self.detect_conflicts(schedule);
         let preference_result = self.check_preferences(schedule);
 

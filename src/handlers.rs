@@ -87,7 +87,7 @@ pub async fn optimize_handler(
 
     let conflicts = if let Some(ref schedule) = best_overall_schedule {
         let checker = ScheduleChecker::new(time_preferences.clone());
-        checker.schedule_messages(schedule)
+        checker.evaluate_messages(schedule)
     } else {
         (vec![], vec![]) // fallback kosong jika tidak ada jadwal
     };

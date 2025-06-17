@@ -64,7 +64,6 @@ pub struct TimePreferenceRequest {
 }
 
 #[derive(Debug, Clone)]
-
 pub struct ScheduleChecker {
    pub time_preferences: HashMap<u32, TimePreferenceRequest>,
 }
